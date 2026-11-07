@@ -138,6 +138,7 @@ function he(x, y) {
     if (z === G.inside) return `「${z}」是你待着的这个字，拿不起来。`;
     if (z === '我' || z === '自己' || (z === '人' && !pool.includes('人')) || (z === G.me && !pool.includes(z))) sel.push('我');
     else if (pool.includes(z)) { pool.splice(pool.indexOf(z), 1); sel.push(z); }
+    else if (z === '火' && G.inside === '灾') return '火在「灾」字里头，被屋顶罩着，你够不着它。';
     else return lit() ? `这里没有「${z}」。` : '太暗了，摸不着。';
   }
   if (sel.filter(s => s === '我').length === 2) return '你只有一个。';
