@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>拆字·话</title>
+<style>
+body{margin:0;background:#16130f;color:#e8e0d0;font:17px/1.75 "PingFang SC","Noto Serif SC",serif}
+#wrap{max-width:640px;margin:0 auto;padding:18px 16px 140px}
+h1{font-weight:normal;font-size:22px;letter-spacing:.3em;margin:6px 0 4px}
+.sub{color:#9a8f7c;font-size:14px;margin-bottom:18px}
+#log p{margin:0 0 10px;white-space:pre-wrap}
+#log .me{color:#9a8f7c}
+#log .room{color:#f0c674;margin-top:22px;letter-spacing:.2em}
+#log .win{color:#b5d98a}
+.z{color:#f0c674;cursor:pointer;border-bottom:1px dotted #6b5b3a}
+#bar{position:fixed;left:0;right:0;bottom:0;background:#1f1a14;border-top:1px solid #3a3226;padding:10px 12px}
+#bar .in{max-width:640px;margin:0 auto;display:flex;gap:8px;flex-wrap:wrap}
+#cmd{flex:1;min-width:160px;font:inherit;background:#0f0d0a;color:#e8e0d0;border:1px solid #4a3f2e;border-radius:6px;padding:6px 10px}
+button{font:inherit;font-size:15px;background:#2c251b;color:#e8e0d0;border:1px solid #4a3f2e;border-radius:6px;padding:4px 12px;cursor:pointer}
+button:active{background:#3a3226}
+</style>
+</head>
+<body>
+<div id="wrap">
+<h1>拆字·话</h1>
+<div class="sub">你在一个字里。屋里的东西都是字，有人说出来的话也是。两间屋子，一间一间出去。<br>你只有两只手：出一间屋，只带得走手里拿着的，最多两样。<br>能说的：看　看 某字　拆 某字　合 某字 某字　拿 某字　放 某字　走<br>（点一下「」里的字，它会填进下面的框。）<br><a href="index.html" style="color:#c9b27a">前面四间在这里</a>，没玩过也能直接玩这两间。</div>
+<div id="log"></div>
+</div>
+<div id="bar"><div class="in">
+<button data-v="看">看</button><button data-v="拆 ">拆</button><button data-v="合 ">合</button><button data-v="拿 ">拿</button><button data-v="走">走</button>
+<input id="cmd" autocomplete="off" placeholder="比如：看 看守"><button id="go">说</button>
+</div></div>
+<script>
+let SPLIT = {}, GLOSS = {}, VAR = {}, JOIN = {};
+const OWN = {'信': '书信；也是真心诚意'};
+const ch = s => Array.from(s);
+const base = c => VAR[c] || c;
+const gl = c => { const g = OWN[c] || GLOSS[c] || ''; return g ? `（${g}）` : ''; };
+function hasPerson(c, d = 0) {
+  if (c === '人' || c === '亻') return true;
+  if (d > 4 || !SPLIT[c]) return false;
+  return SPLIT[c].some(x => hasPerson(x, d + 1));
+}
+const keyOf = (a, b) => [base(a), base(b)].sort().join('|');
+
+const HELP = '能说的：看 / 看 某字 / 拆 某字 / 合 某字 某字 / 拿 某字 / 放 某字 / 走';
+const G = {me: '人', out: false, n: 0, level: 5, inside: '囚', room: [], hand: [], speech: [], rest: false};
+const has = x => G.room.includes(x) || G.hand.includes(x);
+const all = () => G.room.concat(G.hand);
+const rm = x => { const i = G.room.indexOf(x); if (i >= 0) G.room.splice(i, 1); };
+function take(x) { const i = G.room.indexOf(x); if (i >= 0) G.room.splice(i, 1); else G.hand.splice(G.hand.indexOf(x), 1); }
+const now = () => G.speech.join('');
+function lock5() { const s = now(); return (s.includes('出') && s.includes('去')) ? '他照样这么说，墙纹丝不动。' : `他自己愣了一下：休想什么？……想不起来了。反正是休想，墙照样纹丝不动。`; }
+const q = a => a.map(c => `「${c}」`).join('');
+const handS = () => G.hand.length ? '你手里拿着：' + G.hand.map(c => `「${c}」`).join('、') + '。' : '你两手空着。';
+function start(level) {
+  G.level = level;
+  if (level === 5) { G.inside = '囚'; G.room = ['墙', '看守']; G.speech = ch('你休想出去'); G.rest = false; }
+  else { G.inside = null; G.room = ['桥', '河', '看守']; G.speech = ch('大人才许过桥'); }
+}
+function see() {
+  if (G.level === 6)
+    return `桥头。一座桥架在河上，桥那头就是出路。桥头站着一个看守，叉着腰，嘴里说：“${now()}。”你看得见：${G.room.map(c => `「${c}」`).join('、')}，还有他说的那句话：${q(G.speech)}。你是「${G.me}」。${handS()}`;
+  if (G.inside === '囚')
+    return `你在「囚」里：四面是墙，围着你一个人。墙外站着一个看守，背着手，嘴里说：“${now()}。”你看得见：「墙」、「看守」，还有他说的那句话：${q(G.speech)}。你是「${G.me}」。${handS()}`;
+  const rest = G.room.filter(c => c !== '墙' && c !== '看守');
+  return `墙开了一道口子。${G.rest ? '看守靠着木头坐着。' : '看守站在一边，背着手。'}你看得见：${rest.map(c => `「${c}」`).join('、') || '什么也没有'}。你是「${G.me}」。${handS()}`;
+}
+const inSpeech = x => G.speech.includes(x) && (G.level === 6 || G.inside === '囚');
+function look(x) {
+  if (['人', '我', '自己'].includes(x) && !inSpeech(x) || x === G.me) return `你自己，「${G.me}」${gl(G.me)}。`;
+  if (G.level === 5) {
+    if (x === '囚' && G.inside === '囚') return '「囚」：一个方框里关着一个人，那个人就是你。框是看守的话撑着的，他说你出不去，四面墙就一块也不松。';
+    if (x === '墙') return G.inside === '囚' ? '四面墙，是「囚」那个方框。看守说你出不去，墙就纹丝不动。' : '墙开了一道口子，人走得过去。';
+    if (x === '看守') return G.inside === '囚' ? '他背着手站在墙外，站了一整天了。是他把你关在这儿的，他说了算。他那句话一直挂在嘴边：' + q(G.speech) + '。'
+      : (G.rest ? '他靠着木头坐着，眼睛快闭上了。' : '他背着手站在一边，嘴里念叨着：“想出去就出去嘛。”');
+    if (inSpeech(x)) return ({'你': '「你」：他说的是你。左边一个人旁，那就是你。', '休': '「休」：一个人靠着一截木头。本来是歇着的意思，在他这句话里是“别”“甭”。',
+      '想': '「想」：上面一个相，底下一颗心。', '出': '「出」：往外走。', '去': '「去」：离开这儿。'}[x] || `「${x}」。`) + '这是他嘴里说出来的字。';
+  } else {
+    if (x === '看守') return '他叉着腰站在桥头，过路的小老百姓一个个被他拦下。听人说，要是来了大人物，他的腰弯得比谁都快。他那句话一直挂在嘴边：' + q(G.speech) + '。';
+    if (x === '桥' && !G.hand.includes('桥')) return '一座木桥，桥那头就是出路。看守堵在桥头。';
+    if (x === '河') return '河水挺急，蹚不过去。';
+    if (inSpeech(x) && !G.hand.includes(x)) return ({'大': '「大」：一个人张开胳膊，头上一道横。', '人': '「人」：大人的人。', '才': '「才」：只有……才行。他咬得最重的就是这个字。',
+      '许': '「许」：答应。', '过': '「过」：从这头走到那头。', '桥': '「桥」：就是你面前这座。'}[x] || `「${x}」。`) + '这是他嘴里说出来的字。';
+  }
+  if (!has(x)) return `这里没有「${x}」。`;
+  return `「${x}」${gl(x)}。` + (G.hand.includes(x) && !G.room.includes(x) ? '（在你手里。）' : '');
+}
+function open6() { const s = now(); return !s.includes('大') && !s.includes('才') && s.includes('过'); }
+function judge() {
+  const s = now();
+  if (open6()) return `看守挠挠头，又念了一遍：“${s}……”他把拦路的胳膊放下了。`;
+  if (s.includes('大')) return '他照样叉着腰：小老百姓靠边。';
+  if (s.includes('才')) { const w = s.slice(0, s.indexOf('才') + 1); return w.length > 1 ? `他上下打量你：“${w}？你是${w}？看着不像。”他照样拦着。` : '他自己也念不明白，还是拦着。'; }
+  return '他自己也念不明白，还是拦着。';
+}
+function knock(x) {
+  G.speech.splice(G.speech.indexOf(x), 1);
+  const tail = () => G.level === 5 ? lock5() : judge();
+  if (!SPLIT[x]) { G.room.push(x); return `「${x}」拆不开，整个从他嘴里掉了下来，落在你脚边。他那句话成了：“${now()}。”` + tail(); }
+  const [a, b] = SPLIT[x].map(base); G.room.push(a, b);
+  return `你把他话里的「${x}」打散了，「${a}」「${b}」掉在你脚边。他那句话成了：“${now()}。”` + tail();
+}
+function chai(x) {
+  if (x === '我' || x === '自己') x = G.me;
+  if (G.level === 5) {
+    if (x === '囚' && G.inside === '囚') return `你去拆「囚」，四条边松了一下，露出一道缝。看守在外头说：“${now()}。”话一出口，缝又合上了。`;
+    if (x === '墙') return `你去拆墙，砖松了一下。看守在外头说：“${now()}。”话一出口，砖又严丝合缝了。`;
+    if (x === '看守') return '看守隔着一堵墙，你够不着他。你够得着的，只有他说出来的话。';
+    if (inSpeech(x) && x === '休') {
+      G.speech.splice(G.speech.indexOf('休'), 1); G.room.push('人', '木'); G.inside = null;
+      return '「休」从他嘴里掉了出来，散成一个「人」一个「木」，滚到你脚边。他那句话成了：“你想出去。”\n看守愣了一会儿：“想出去？……那就出去吧。”他走过来，把墙拉开了一道口子。';
+    }
+    if (inSpeech(x)) return knock(x);
+  } else {
+    if (x === '看守') return '看守离你好几步远，你够不着他。你够得着的，只有他说出来的话。';
+    if (x === '桥' && !has('桥')) return '拆了桥，你也过不去了。';
+    if (inSpeech(x) && !has(x)) return knock(x);
+  }
+  if (x === G.me) {
+    if (G.me === '人') return '「人」拆不开。';
+    const [a, b] = SPLIT[G.me].map(base); const keep = hasPerson(a) ? a : b, other = keep === a ? b : a;
+    G.me = keep; G.room.push(other);
+    return `你把自己拆开，成了「${keep}」，旁边落下一个「${other}」。`;
+  }
+  if (!has(x)) return `这里没有「${x}」。`;
+  if (!SPLIT[x]) return `「${x}」是一整个字，拆不开。`;
+  const [a, b] = SPLIT[x].map(base); take(x); G.room.push(a, b);
+  return `「${x}」拆成了「${a}」和「${b}」。`;
+}
+function he(x, y) {
+  if (G.level === 6) for (const z of [x, y]) if (inSpeech(z) && !has(z) && z !== '人') return `「${z}」还在他嘴里，你得先把它拿过来。`;
+  if (G.level === 5 && G.inside === '囚' && (inSpeech(x) || inSpeech(y))) return '那是他嘴里的话。你能把里头的字拆开，可塞不进东西去。';
+  if (G.level === 5 && G.inside !== '囚' && [x, y].sort().join() === ['人', '木'].sort().join() && has('人') && has('木')) {
+    take('人'); take('木'); G.rest = true;
+    return '你把「人」靠在「木」上，成了一个「休」。看守看见了，叹了口气，挨着那根木头坐了下来：“站了一整天了。”';
+  }
+  const sel = [], pool = all();
+  for (const z of [x, y]) {
+    if (z === G.inside) return `「${z}」是你待着的这个字，拿不起来。`;
+    if (z === '我' || z === '自己' || (z === '人' && (!pool.includes('人') || (G.level === 6 && G.me === '人'))) || (z === G.me && !pool.includes(z))) sel.push('我');
+    else if (pool.includes(z)) { pool.splice(pool.indexOf(z), 1); sel.push(z); }
+    else return `这里没有「${z}」。`;
+  }
+  if (sel.filter(s => s === '我').length === 2) return '你只有一个。';
+  const parts = sel.map(s => s === '我' ? G.me : s);
+  if (parts.some(p => ['墙', '看守', '桥', '河'].includes(p) && !G.hand.includes(p))) return `「${parts[0]}」和「${parts[1]}」拼不成字。`;
+  const cands = JOIN[keyOf(parts[0], parts[1])] || [];
+  if (!cands.length) return `「${parts[0]}」和「${parts[1]}」拼不成字。`;
+  const c = cands[0][0];
+  for (const s of sel) if (s !== '我') take(s);
+  if (sel.includes('我')) {
+    const other = sel.find(s => s !== '我');
+    G.me = c;
+    let s = `你和「${other}」合成了「${c}」${gl(c)}。你现在是「${c}」。`;
+    if (c === '休') s += '你背靠着木头坐下了，一下子什么都不想干。';
+    return s;
+  }
+  G.room.push(c);
+  return `合成了「${c}」${gl(c)}。`;
+}
+function na(x) {
+  if (G.level >= 5 && inSpeech(x) && !(G.level === 6 && has(x))) {
+    if (G.hand.length >= 2) return `你两只手都占着了（「${G.hand[0]}」「${G.hand[1]}」）。先放下一样。`;
+    G.speech.splice(G.speech.indexOf(x), 1); G.hand.push(x);
+    if (G.level === 5 && x === '休') { G.inside = null; return '你伸手从他嘴里把「休」拿了过来。他那句话成了：“你想出去。”\n看守愣了一会儿：“想出去？……那就出去吧。”他走过来，把墙拉开了一道口子。'; }
+    if (G.level === 6) return `你从他嘴里把「${x}」拿了过来。他那句话成了：“${now()}。”` + judge();
+    return `你从他嘴里把「${x}」拿了过来。他那句话成了：“${now()}。”` + lock5();
+  }
+  if (['看守', '墙', '桥', '河'].includes(x) && G.room.includes(x)) return ({'看守': '你够不着他。', '墙': '墙推不动。', '桥': '桥拿不动。', '河': '河拿不动。'})[x];
+  if (G.hand.includes(x) && !G.room.includes(x)) return `「${x}」已经在你手里了。`;
+  if (!G.room.includes(x)) return `这里没有「${x}」。`;
+  if (G.hand.length >= 2) return `你两只手都占着了（「${G.hand[0]}」「${G.hand[1]}」）。先放下一样。`;
+  rm(x); G.hand.push(x);
+  return `你把「${x}」拿在手里。出了这间屋，手里的会跟着你走。`;
+}
+function fang(x) {
+  if (!G.hand.includes(x)) return `你手里没有「${x}」。`;
+  G.hand.splice(G.hand.indexOf(x), 1); G.room.push(x);
+  return `你把「${x}」放下了。`;
+}
+function go() {
+  if (G.level === 6) {
+    if (G.me === '大') {
+      G.out = true;
+      return ['看守一抬头，看见是个「大」字，腰一下子弯了下去：“大人？……大人请。”\n你从桥上走了过去。回头看，他又叉起了腰，' + `把后头一个挑担子的拦了下来：“${now()}！”`, {win: '（出来了。）'}];
+    }
+    if (G.me === '休') { G.me = '人'; if (G.hand.length < 2) G.hand.push('木'); else G.room.push('木'); const r = [].concat(go()); r[0] = '你从木头边上站起来。' + r[0]; return r; }
+    if (open6()) {
+      G.out = true;
+      return [`看守没拦你。你走上了桥。后头一个挑担子的也跟了上来，看守张了张嘴：“${now()}……”没拦。\n走到桥中间你回头看，桥上已经有好几个人了。`, {win: '（出来了。）'}];
+    }
+    return `看守伸出胳膊拦住你：“${now()}。”` + (now().includes('大') ? '他上下打量你：“你是大人吗？不是就靠边。”' : judge());
+  }
+  if (G.inside === '囚') return `四面是墙，你出不去。看守说了：“${now()}。”`;
+  if (G.me === '休') return '你靠着木头坐着，一点也不想动。';
+  const s = '你从墙那道口子走了出去。' + (G.rest ? '身后看守靠着木头，已经睡着了。' : '身后看守又背起了手，嘴里念叨着：“想出去就出去嘛。”');
+  start(6); G.me = '人';
+  return [s, {room: '——下一间——'}, see()];
+}
+
+function doLine(line) {
+  line = line.trim().replace(/　/g, ' ');
+  if (!line) return '';
+  if (G.out) return '你已经出来了。想再来一回，刷新这一页。';
+  G.n++;
+  const t = line.split(/\s+/);
+  let v = t[0], args = t.slice(1);
+  if (t.length === 1 && ch(v).length > 1 && '拆合看'.includes(ch(v)[0])) { args = ch(v).slice(1); v = ch(v)[0]; }
+  if (['看', 'l', 'look'].includes(v) && !args.length) return see();
+  if (v === '看') return look(args[0]);
+  if (v === '拆' && args.length) return chai(args[0]);
+  if (v === '合' && args.length >= 2) return he(args[0], args[1]);
+  if (v === '合' && args.length === 1 && ch(args[0]).length === 2) return he(ch(args[0])[0], ch(args[0])[1]);
+  if (['走', '出', '出去', '开门', '推门', '钻'].includes(v)) return go();
+  if (['拿', '捡'].includes(v) && args.length) return na(args[0]);
+  if (['放', '扔'].includes(v) && args.length) return fang(args[0]);
+  if (['说', '喊', '求', '问'].includes(v)) return '看守不听你说。他只听他自己说的。';
+  if (v === '手') return G.hand.length ? '你手里拿着：' + G.hand.map(c => `「${c}」`).join('、') + '。' : '你两手空着。';
+  if (['帮助', '?', '？'].includes(v)) return HELP;
+  return '听不懂。' + HELP;
+}
+
+const log = document.getElementById('log'), cmd = document.getElementById('cmd');
+function esc(s) { return s.replace(/[&<>]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;'})[c]); }
+function out(text, cls) {
+  const p = document.createElement('p');
+  if (cls) p.className = cls;
+  p.innerHTML = esc(text).replace(/「([^」]+)」/g, '「<span class="z">$1</span>」');
+  log.appendChild(p);
+}
+function say(r) {
+  for (const x of [].concat(r)) {
+    if (typeof x === 'string') { if (x) out(x); }
+    else if (x.room) out(x.room, 'room');
+    else if (x.win) out(x.win, 'win');
+  }
+  window.scrollTo(0, document.body.scrollHeight);
+}
+function submit() {
+  const line = cmd.value; if (!line.trim()) return;
+  out('> ' + line.trim(), 'me');
+  say(doLine(line)); cmd.value = '';
+  if (window.innerWidth > 700) cmd.focus();
+}
+document.getElementById('go').onclick = submit;
+cmd.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) submit(); });
+document.querySelectorAll('button[data-v]').forEach(b => b.onclick = () => {
+  const v = b.dataset.v;
+  if (v === '看' && cmd.value.trim() === '') { cmd.value = '看'; submit(); return; }
+  if (v === '走') { cmd.value = '走'; submit(); return; }
+  cmd.value = v; cmd.focus();
+});
+log.addEventListener('click', e => {
+  if (!e.target.classList.contains('z')) return;
+  const z = e.target.textContent;
+  let v = cmd.value;
+  if (!v.trim()) v = '看 ';
+  cmd.value = v.replace(/\s*$/, ' ') + z;
+});
+
+fetch('zi.json').then(r => r.json()).then(d => {
+  VAR = d.var; GLOSS = d.gloss;
+  for (const [c, ab] of Object.entries(d.split)) {
+    const [a, b] = ch(ab);
+    SPLIT[c] = [a, b];
+    (JOIN[keyOf(a, b)] = JOIN[keyOf(a, b)] || []).push([c, a, b]);
+  }
+  for (const [c, a, b] of [['本', '木', '一'], ['末', '一', '木']]) {
+    if (!SPLIT[c]) SPLIT[c] = [a, b];
+    (JOIN[keyOf(a, b)] = JOIN[keyOf(a, b)] || []).push([c, a, b]);
+  }
+  start(5);
+  out('——第一间——', 'room');
+  out(see());
+});
+// 给测试用
+window.__chai = {doLine, G};
+</script>
+</body>
+</html>
