@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>拆字</title>
+<style>
+body{margin:0;background:#16130f;color:#e8e0d0;font:17px/1.75 "PingFang SC","Noto Serif SC",serif}
+#wrap{max-width:640px;margin:0 auto;padding:18px 16px 140px}
+h1{font-weight:normal;font-size:22px;letter-spacing:.3em;margin:6px 0 4px}
+.sub{color:#9a8f7c;font-size:14px;margin-bottom:18px}
+#log p{margin:0 0 10px;white-space:pre-wrap}
+#log .me{color:#9a8f7c}
+#log .room{color:#f0c674;margin-top:22px;letter-spacing:.2em}
+#log .win{color:#b5d98a}
+.z{color:#f0c674;cursor:pointer;border-bottom:1px dotted #6b5b3a}
+#bar{position:fixed;left:0;right:0;bottom:0;background:#1f1a14;border-top:1px solid #3a3226;padding:10px 12px}
+#bar .in{max-width:640px;margin:0 auto;display:flex;gap:8px;flex-wrap:wrap}
+#cmd{flex:1;min-width:160px;font:inherit;background:#0f0d0a;color:#e8e0d0;border:1px solid #4a3f2e;border-radius:6px;padding:6px 10px}
+button{font:inherit;font-size:15px;background:#2c251b;color:#e8e0d0;border:1px solid #4a3f2e;border-radius:6px;padding:4px 12px;cursor:pointer}
+button:active{background:#3a3226}
+</style>
+</head>
+<body>
+<div id="wrap">
+<h1>拆字</h1>
+<div class="sub">你在一个字里。屋里的东西都是字。三间屋子，一间一间出去。<br>能说的：看　看 某字　拆 某字　合 某字 某字　走<br>（点一下「」里的字，它会填进下面的框。）</div>
+<div id="log"></div>
+</div>
+<div id="bar"><div class="in">
+<button data-v="看">看</button><button data-v="拆 ">拆</button><button data-v="合 ">合</button><button data-v="走">走</button>
+<input id="cmd" autocomplete="off" placeholder="比如：拆 暗"><button id="go">说</button>
+</div></div>
+<script>
+let SPLIT = {}, GLOSS = {}, VAR = {}, JOIN = {};
+const OWN = {'信': '书信；也是真心诚意'};
+const ch = s => Array.from(s);
+const base = c => VAR[c] || c;
+const gl = c => { const g = OWN[c] || GLOSS[c] || ''; return g ? `（${g}）` : ''; };
+function hasPerson(c, d = 0) {
+  if (c === '人' || c === '亻') return true;
+  if (d > 4 || !SPLIT[c]) return false;
+  return SPLIT[c].some(x => hasPerson(x, d + 1));
+}
+const keyOf = (a, b) => [base(a), base(b)].sort().join('|');
+
+const DESC = {
+  1: {'门': '墙上一扇门，关着，没有把手，也没有缝。推不动。', '日': '一个小太阳挂在屋里。',
+      '音': '屋里一直响着一个声音，不知道从哪来。', '间': '门开了一条缝，光从缝里过来。缝太窄，人过不去。',
+      '闲': '门里横着一根木头，像一道栅栏。', '木': '一截木头。'},
+  2: {'口': '墙上一个窄窄的口子，跟信箱口差不多宽。人钻不过去。', '话': '墙上写着一句话，字迹被烟熏得发黑。',
+      '旦': '窗台上搁着一个「旦」：一个日刚从一道横线上冒出来。', '水': '一桶水。', '木': '一截木头，有点焦了。',
+      '火': '火在地上烧，挡在墙前。', '宀': '一片屋顶，掀在一边。', '灭': '一道横盖在火上，火灭了，只剩一点烟。',
+      '炎': '火上加火，烧得更旺了。', '日': '一个小太阳挂在屋里。', '一': '一道横。'},
+  3: {'二': '井壁上刻着两道横，一上一下。', '水': '井底一汪水，一尺来深。', '蛙': '一只青蛙蹲在井底，看着井口，说：“天就井口那么大。”',
+      '言': '一个「言」，是你刚才当信的时候身上的字。', '一': '一道横。', '虫': '一条小虫。', '圭': '两块土叠在一起。', '土': '一块土。'},
+};
+
+const G = {me: '人', out: false, n: 0, level: 1, inside: '暗', room: []};
+function start(level) {
+  G.level = level;
+  if (level === 1) { G.inside = '暗'; G.room = ['门', '木']; }
+  else if (level === 2) { G.inside = '灾'; G.room = ['口', '话', '旦', '水', '木']; }
+  else { G.inside = '井'; G.room = ['二', '水', '蛙']; }
+}
+const rm = x => { const i = G.room.indexOf(x); if (i >= 0) G.room.splice(i, 1); };
+function fire() {
+  if (G.inside === '灾') return true;
+  return G.room.some(o => o !== '灭' && (o === '火' || (SPLIT[o] || []).map(base).includes('火')));
+}
+function lit() {
+  if (G.inside === '暗') return false;
+  if (G.inside === '井' || fire()) return true;
+  return G.room.some(o => o === '日' || (SPLIT[o] || []).includes('日'));
+}
+function see() {
+  if (!lit()) return G.inside === '暗' ? `暗。什么也看不见。你是「${G.me}」。` : `屋里黑了。什么也看不见。你是「${G.me}」。`;
+  const things = G.room.map(c => `「${c}」`).join('、') || '什么也没有';
+  const head = {'灾': '热。你在「灾」里：屋顶底下着着火。', '井': '井。你在井底，井口在头顶上，圆圆的一块天，够不着。'}[G.inside] || '屋里亮着。';
+  return `${head}你看得见：${things}。你是「${G.me}」。`;
+}
+const desc = x => (DESC[G.level] || {})[x] || '';
+const blocked = x => G.level === 2 && (x === '话' || x === '口') && fire() && G.me !== '伙';
+
+function look(x) {
+  if (['人', '我', '自己'].includes(x) || x === G.me) return `你自己，「${G.me}」${gl(G.me)}。`;
+  if (x === G.inside) return `「${x}」${gl(x)}。你就在它里面。`;
+  if (!lit()) return '太暗了，看不见。';
+  if (!G.room.includes(x)) return `这里没有「${x}」。`;
+  return `「${x}」${gl(x)}。${desc(x)}`;
+}
+function chai(x) {
+  if (x === '我' || x === '自己') x = G.me;
+  if (x === G.inside && x === '暗') {
+    G.inside = null; G.room.push('日', '音');
+    return '你把「暗」拆开：一个「日」，一个「音」。日挂在屋里，亮了。音没了着落，在屋里响着。\n' + see();
+  }
+  if (x === G.inside && x === '灾') {
+    G.inside = null; G.room.push('宀', '火');
+    return '你把「灾」拆开：屋顶「宀」掀到了一边，「火」落在地上，烧得更旺了，正挡在墙前。';
+  }
+  if (x === G.inside) return `「${x}」拆不开：它是一整个字，你就在它里面。`;
+  if (x === G.me) {
+    if (G.me === '人') return '「人」拆不开。';
+    const [a, b] = SPLIT[G.me].map(base);
+    const [keep, other] = hasPerson(a) ? [a, b] : [b, a];
+    G.me = keep; G.room.push(other);
+    let s = `你把自己拆开，成了「${keep}」，旁边落下一个「${other}」。`;
+    if (other === '火') s += '火又烧了起来。';
+    return s;
+  }
+  if (!lit()) return '太暗了，摸不着。';
+  if (!G.room.includes(x)) return `这里没有「${x}」。`;
+  if (blocked(x)) return '火挡在墙前，够不着。';
+  if (!SPLIT[x]) return `「${x}」拆不开了。`;
+  const [a, b] = SPLIT[x].map(base);
+  rm(x); G.room.push(a, b);
+  let s = `「${x}」拆成了「${a}」和「${b}」。`;
+  if ((a === '门' || b === '门') && x !== '门') s += '门又是一扇关着的门了。';
+  if (x === '灭') s += '火又烧了起来。';
+  if (x === '话') s += '「言」从墙上掉了下来。';
+  return s;
+}
+function he(x, y) {
+  const sel = [], pool = G.room.slice();
+  for (const z of [x, y]) {
+    if (z === G.inside) return `「${z}」是你待着的这个字，拿不起来。`;
+    if (z === '我' || z === '自己' || (z === '人' && !pool.includes('人')) || (z === G.me && !pool.includes(z))) sel.push('我');
+    else if (pool.includes(z)) { pool.splice(pool.indexOf(z), 1); sel.push(z); }
+    else return lit() ? `这里没有「${z}」。` : '太暗了，摸不着。';
+  }
+  if (sel.filter(s => s === '我').length === 2) return '你只有一个。';
+  if (!lit()) return '太暗了，摸不着。';
+  for (const s of sel) if (s !== '我' && blocked(s)) return '火挡在墙前，够不着。';
+  const other0 = sel.find(s => s !== '我');
+  if (sel.includes('我') && G.me === '信' && other0 === '口' && G.level === 2) return win2();
+  const parts = sel.map(s => s === '我' ? G.me : s);
+  const ps = parts.slice().sort().join('|');
+  if (ps === ['二', '水'].sort().join('|')) return '「二」和「水」拼不成字。「二」是两道横，不是两点水。';
+  if (ps === ['水', '火'].sort().join('|')) return '「水」和「火」拼不成字。水泼上去，嗤的一声又着了：这屋里的火是个字。';
+  let cands = JOIN[keyOf(parts[0], parts[1])] || [];
+  if (!cands.length) return `「${parts[0]}」和「${parts[1]}」拼不成字。`;
+  cands = cands.slice().sort((p, q) => (([p[1], p[2]].sort().join('|') === ps) ? 0 : 1) - (([q[1], q[2]].sort().join('|') === ps) ? 0 : 1));
+  const c = cands[0][0];
+  for (const s of sel) if (s !== '我') rm(s);
+  if (sel.includes('我')) {
+    if (c === '闪' && G.level === 1) return win1();
+    if (c === '天' && G.level === 3) return win3();
+    G.me = c;
+    let s = `你和「${other0}」合成了「${c}」${gl(c)}。你现在是「${c}」。`;
+    if (G.level === 3) s += ({'大': '你一下子大了，脑袋顶到了井口，肩膀卡在井里，上不去，也下不来。',
+      '夫': '一个大人站在井底，还是够不着井口。', '仁': '好人也出不了井。', '氽': '你浮在水上。水只有一尺深，浮不高。'})[c] || '';
+    if (c === '伙') s += '火不烧自己人，你走到哪，它让到哪。';
+    if (c === '大' && G.level === 2) s += '你一下子大了，脑袋顶着屋顶。';
+    if (c === '信' && fire()) s += '火苗一舔，你的边上卷了起来，烫。';
+    return s;
+  }
+  if (c === '暗') { G.inside = '暗'; return '「日」和「音」合成了「暗」。你又在暗里了。'; }
+  if (c === '灾') { G.inside = '灾'; return '你把屋顶盖回火上，又是「灾」了。'; }
+  G.room.push(c);
+  let s = `合成了「${c}」${gl(c)}。${desc(c)}`;
+  if (parts.includes('火') && c !== '灭' && c !== '灾') s += '火还在里头烧着。';
+  if (c === '灭' && !fire()) s += '墙前能过去了。';
+  if (c === '问') s += '门张开口问：“你是谁？”没等你答，它又闭上了嘴。';
+  if (!lit()) s += '屋里黑了。';
+  return s;
+}
+function win1() {
+  start(2);
+  return ['你走进门里。「闪」，人在门中，本义是从门里偷看。你从门里往外看了一眼，人已经在外面了。', {room: '——第二间——'}, see()];
+}
+function win2() {
+  if (fire()) return '你是一封信，可火挡在墙前，你一过去就要着。';
+  start(3);
+  return ['你是一封信。你从墙上那个窄口里塞了出去，轻飘飘落下去，落了很久。', {room: '——第三间——'}, see()];
+}
+function win3() {
+  G.out = true;
+  return ['你头顶上又多了一横。「天」，本义是人的头顶，头顶上那一片。你一下子比井口还大，整口井在你脚底下。\n井底的蛙抬头看你，说：“天原来这么大。”', {win: `（出来了。三间一共说了 ${G.n} 句。）`}];
+}
+function go() {
+  if (!lit()) return '太暗了，摸不到门在哪。';
+  if (G.level === 1) return '门关着，没有把手，也没有缝。推不动。';
+  if (G.level === 3) return '井壁又湿又滑，爬不上去。井口太高了。';
+  if (fire() && G.me !== '伙') return '火挡在墙前，过不去。';
+  if (G.me === '信') return win2();
+  if (fire()) return '你跟着火走到墙前。墙上那个口子太窄，你钻不过去。';
+  return '墙上那个口子太窄，人钻不过去。';
+}
+const HELP = '能说的：看 / 看 某字 / 拆 某字 / 合 某字 某字 / 走';
+function doLine(line) {
+  line = line.trim().replace(/　/g, ' ');
+  if (!line) return '';
+  if (G.out) return '你已经出来了。想再来一回，刷新这一页。';
+  G.n++;
+  const t = line.split(/\s+/);
+  let v = t[0], args = t.slice(1);
+  if (t.length === 1 && ch(v).length > 1 && '拆合看'.includes(ch(v)[0])) { args = ch(v).slice(1); v = ch(v)[0]; }
+  if (['看', 'l', 'look'].includes(v) && !args.length) return see();
+  if (v === '看') return look(args[0]);
+  if (v === '拆' && args.length) return chai(args[0]);
+  if (v === '合' && args.length >= 2) return he(args[0], args[1]);
+  if (v === '合' && args.length === 1 && ch(args[0]).length === 2) return he(ch(args[0])[0], ch(args[0])[1]);
+  if (['走', '出', '出去', '开门', '推门', '钻'].includes(v)) return go();
+  if (['帮助', '?', '？'].includes(v)) return HELP;
+  return '听不懂。' + HELP;
+}
+
+const log = document.getElementById('log'), cmd = document.getElementById('cmd');
+function esc(s) { return s.replace(/[&<>]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;'})[c]); }
+function out(text, cls) {
+  const p = document.createElement('p');
+  if (cls) p.className = cls;
+  p.innerHTML = esc(text).replace(/「([^」]+)」/g, '「<span class="z">$1</span>」');
+  log.appendChild(p);
+}
+function say(r) {
+  for (const x of [].concat(r)) {
+    if (typeof x === 'string') { if (x) out(x); }
+    else if (x.room) out(x.room, 'room');
+    else if (x.win) out(x.win, 'win');
+  }
+  window.scrollTo(0, document.body.scrollHeight);
+}
+function submit() {
+  const line = cmd.value; if (!line.trim()) return;
+  out('> ' + line.trim(), 'me');
+  say(doLine(line)); cmd.value = '';
+  if (window.innerWidth > 700) cmd.focus();
+}
+document.getElementById('go').onclick = submit;
+cmd.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) submit(); });
+document.querySelectorAll('button[data-v]').forEach(b => b.onclick = () => {
+  const v = b.dataset.v;
+  if (v === '看' && cmd.value.trim() === '') { cmd.value = '看'; submit(); return; }
+  if (v === '走') { cmd.value = '走'; submit(); return; }
+  cmd.value = v; cmd.focus();
+});
+log.addEventListener('click', e => {
+  if (!e.target.classList.contains('z')) return;
+  const z = e.target.textContent;
+  let v = cmd.value;
+  if (!v.trim()) v = '看 ';
+  cmd.value = v.replace(/\s*$/, ' ') + z;
+});
+
+fetch('zi.json').then(r => r.json()).then(d => {
+  VAR = d.var; GLOSS = d.gloss;
+  for (const [c, ab] of Object.entries(d.split)) {
+    const [a, b] = ch(ab);
+    SPLIT[c] = [a, b];
+    (JOIN[keyOf(a, b)] = JOIN[keyOf(a, b)] || []).push([c, a, b]);
+  }
+  start(1);
+  out({1: '——第一间——'}[1], 'room');
+  out(see());
+});
+// 给测试用
+window.__chai = {doLine, G};
+</script>
+</body>
+</html>
