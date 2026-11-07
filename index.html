@@ -79,7 +79,8 @@ function lit() {
 function see() {
   if (!lit()) return G.inside === '暗' ? `暗。什么也看不见。你是「${G.me}」。` : `屋里黑了。什么也看不见。你是「${G.me}」。`;
   const things = G.room.map(c => `「${c}」`).join('、') || '什么也没有';
-  const head = {'灾': '热。你在「灾」里：屋顶底下着着火。', '井': '井。你在井底，井口在头顶上，圆圆的一块天，够不着。'}[G.inside] || '屋里亮着。';
+  let head = {'灾': '热。你在「灾」里：屋顶底下着着火。', '井': '井。你在井底，井口在头顶上，圆圆的一块天，够不着。'}[G.inside] || '屋里亮着。';
+  if (G.inside === '井' && G.me === '天') head = '井。井口在你底下了，你比它大。';
   const hand = G.hand.length ? '你手里拿着：' + G.hand.map(c => `「${c}」`).join('、') + '。' : '你两手空着。';
   return `${head}你看得见：${things}。你是「${G.me}」。${hand}`;
 }
@@ -209,6 +210,7 @@ function na(x) {
   if (!G.room.includes(x)) return `这里没有「${x}」。`;
   if (x === G.inside) return `「${x}」是你待着的这个字，拿不起来。`;
   if (blocked(x)) return '火挡在墙前，够不着。';
+  if (x === '蛙') return '蛙往后缩了一下，不让你拿。它扭头看了看井壁，又湿又滑。';
   if (['门', '口', '话', '蛙'].includes(x) || (x === '水' && G.level === 3)) return `「${x}」拿不动。`;
   if (x !== '灭' && (x === '火' || (SPLIT[x] || []).map(base).includes('火'))) return '烫，拿不了。';
   if (G.hand.length >= 2) return `你两只手都占着了（「${G.hand[0]}」「${G.hand[1]}」）。先放下一样。`;
